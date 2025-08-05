@@ -1,16 +1,25 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Settings } from 'lucide-react'
 import { 
-  SettingsDialog, 
   ChatMessage, 
   LoadingIndicator, 
   ChatInput, 
-  Sidebar, 
   WelcomeScreen 
 } from '../components'
 import { useConversations, useAppState, store, actions } from '../store'
 import { genAIResponse, type Message } from '../utils'
+
+// Lazy load heavy components
+const SettingsDialog = lazy(() => import('../components/SettingsDialog').then(module => ({ default: module.SettingsDialog })))
+const Sidebar = lazy(() => import('../components/Sidebar').then(module => ({ default: module.Sidebar })))
+
+// Loading fallback for lazy components
+const ComponentFallback = () => (
+  <div className="flex items-center justify-center p-4">
+    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500"></div>
+  </div>
+)
 
 function Home() {
   const {
@@ -199,114 +208,134 @@ function Home() {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant' as const,
-        content: 'Sorry, I encountered an error processing your request.',
+        content: 'Sorry, I encountered an error. Please try again.',
       }
-      if (currentConversationId) {
-        await addMessage(currentConversationId, errorMessage)
-      }
-      else {
-        if (error instanceof Error) {
-          setError(error.message)
-        } else {
-          setError('An unknown error occurred.')
-        }
-      }
+      await addMessage(conversationId || 'temp', errorMessage)
     } finally {
       setLoading(false)
     }
-  }, [input, isLoading, createTitleFromInput, currentConversationId, createNewConversation, addMessage, processAIResponse, setLoading]);
+  }, [input, isLoading, currentConversationId, createNewConversation, addMessage, processAIResponse, createTitleFromInput, setLoading]);
 
   const handleNewChat = useCallback(() => {
-    createNewConversation()
-  }, [createNewConversation]);
+    setCurrentConversationId(null)
+    setInput('')
+    setError(null)
+  }, [setCurrentConversationId]);
 
   const handleDeleteChat = useCallback(async (id: string) => {
-    await deleteConversation(id)
-  }, [deleteConversation]);
+    try {
+      await deleteConversation(id)
+      if (currentConversationId === id) {
+        setCurrentConversationId(null)
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error)
+    }
+  }, [deleteConversation, currentConversationId, setCurrentConversationId]);
 
   const handleUpdateChatTitle = useCallback(async (id: string, title: string) => {
-    await updateConversationTitle(id, title)
-    setEditingChatId(null)
-    setEditingTitle('')
+    try {
+      await updateConversationTitle(id, title)
+    } catch (error) {
+      console.error('Error updating conversation title:', error)
+    }
   }, [updateConversationTitle]);
 
-  return (
-    <div className="relative flex h-screen bg-gray-900">
-      {/* Settings Button */}
-      <div className="absolute z-50 top-5 right-5">
-        <button
-          onClick={() => setIsSettingsOpen(true)}
-          className="flex items-center justify-center w-10 h-10 text-white transition-opacity rounded-full bg-gradient-to-r from-orange-500 to-red-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-orange-500"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-      </div>
+  // Memoize sidebar props to prevent unnecessary re-renders
+  const sidebarProps = useMemo(() => ({
+    conversations,
+    currentConversationId,
+    handleNewChat,
+    setCurrentConversationId,
+    handleDeleteChat,
+    editingChatId,
+    setEditingChatId,
+    editingTitle,
+    setEditingTitle,
+    handleUpdateChatTitle,
+  }), [
+    conversations,
+    currentConversationId,
+    handleNewChat,
+    setCurrentConversationId,
+    handleDeleteChat,
+    editingChatId,
+    setEditingChatId,
+    editingTitle,
+    setEditingTitle,
+    handleUpdateChatTitle,
+  ]);
 
+  // Show welcome screen if no conversations and no current conversation
+  if (conversations.length === 0 && !currentConversationId) {
+    return (
+      <div className="flex h-screen bg-gray-900">
+        <WelcomeScreen onStartChat={handleNewChat} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-900">
       {/* Sidebar */}
-      <Sidebar 
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        handleNewChat={handleNewChat}
-        setCurrentConversationId={setCurrentConversationId}
-        handleDeleteChat={handleDeleteChat}
-        editingChatId={editingChatId}
-        setEditingChatId={setEditingChatId}
-        editingTitle={editingTitle}
-        setEditingTitle={setEditingTitle}
-        handleUpdateChatTitle={handleUpdateChatTitle}
-      />
+      <Suspense fallback={<ComponentFallback />}>
+        <Sidebar {...sidebarProps} />
+      </Suspense>
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
-        {!isAnthropicKeyDefined && (
-          <div className="w-full max-w-3xl px-2 py-2 mx-auto mt-4 mb-2 font-medium text-center text-white bg-orange-500 rounded-md text-sm">
-            <p>This app requires an Anthropic API key to work properly. Update your <code>.env</code> file or get a <a href='https://console.anthropic.com/settings/keys' className='underline'>new Anthropic key</a>.</p>
-            <p>For local development, use <a href='https://www.netlify.com/products/dev/' className='underline'>netlify dev</a> to automatically load environment variables.</p>
-          </div>
-        )}
-        {error && (
-          <p className="w-full max-w-3xl p-4 mx-auto font-bold text-orange-500">{error}</p>
-        )}
-        {currentConversationId ? (
-          <>
-            {/* Messages */}
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 pb-24 overflow-y-auto"
-            >
-              <div className="w-full max-w-3xl px-4 mx-auto">
-                {[...messages, pendingMessage]
-                  .filter((message): message is Message => message !== null)
-                  .map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))}
-                {isLoading && <LoadingIndicator />}
-              </div>
-            </div>
+        {/* Header */}
+        <header className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h1 className="text-xl font-semibold text-white">TanStack Chat</h1>
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-2 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </header>
 
-            {/* Input */}
-            <ChatInput 
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              isLoading={isLoading}
-            />
-          </>
-        ) : (
-          <WelcomeScreen 
-            input={input}
-            setInput={setInput}
-            handleSubmit={handleSubmit}
-            isLoading={isLoading}
+        {/* Messages */}
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+        >
+          {messages.map((message) => (
+            <ChatMessage key={message.id} message={message} />
+          ))}
+          
+          {pendingMessage && (
+            <ChatMessage message={pendingMessage} />
+          )}
+          
+          {isLoading && <LoadingIndicator />}
+          
+          {error && (
+            <div className="text-red-500 text-center p-4">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="p-4 border-t border-gray-700">
+          <ChatInput
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSubmit}
+            disabled={isLoading || !isAnthropicKeyDefined}
+            placeholder={isAnthropicKeyDefined ? "Type your message..." : "Please set VITE_ANTHROPIC_API_KEY to start chatting..."}
           />
-        )}
+        </div>
       </div>
 
       {/* Settings Dialog */}
-      <SettingsDialog
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <Suspense fallback={<ComponentFallback />}>
+        <SettingsDialog
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      </Suspense>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 @import "tailwindcss";
-@import "highlight.js/styles/github-dark.css";
+
+/* Only load highlight.js styles when needed - now handled dynamically */
 
 body {
   @apply m-0;
@@ -8,6 +9,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Add content-visibility for better rendering performance */
+  content-visibility: auto;
 }
 
 code {
@@ -15,7 +18,7 @@ code {
     monospace;
 }
 
-/* Custom scrollbar styles */
+/* Optimized scrollbar styles with hardware acceleration */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -27,22 +30,90 @@ code {
 ::-webkit-scrollbar-thumb {
   background-color: rgba(156, 163, 175, 0.5);
   border-radius: 4px;
+  /* Add hardware acceleration */
+  transform: translateZ(0);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.7);
 }
 
-/* Smooth transitions for dark mode */
+/* Optimized transitions for dark mode with hardware acceleration */
 html {
   transition: background-color 0.3s ease;
+  /* Add hardware acceleration */
+  transform: translateZ(0);
 }
 
-/* Markdown content styles */
+/* Optimized Markdown content styles */
 .prose {
   max-width: none;
   color: #e5e7eb; /* text-gray-200 */
+  /* Optimize text rendering */
+  text-rendering: optimizeLegibility;
+  /* Add containment for better performance */
+  contain: layout style;
 }
+
+/* Add CSS containment for better performance */
+.chat-message {
+  contain: layout style;
+}
+
+.sidebar {
+  contain: layout style;
+}
+
+.settings-dialog {
+  contain: layout style;
+}
+
+/* Optimize animations with transform instead of layout properties */
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.loading-skeleton {
+  animation: shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(to right, #374151 8%, #4b5563 18%, #374151 33%);
+  background-size: 800px 104px;
+}
+
+/* Optimize focus states */
+.focus-optimized:focus {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+  /* Use transform for better performance */
+  transform: translateZ(0);
+}
+
+/* Duplicate .prose rule removed - already defined above with optimizations */
 
 /* .prose p {
   margin-top: 1.25em;

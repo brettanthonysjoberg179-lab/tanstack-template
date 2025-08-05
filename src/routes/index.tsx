@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Settings } from 'lucide-react'
 import { 
-  SettingsDialog, 
   ChatMessage, 
   LoadingIndicator, 
   ChatInput, 
@@ -11,6 +10,38 @@ import {
 } from '../components'
 import { useConversations, useAppState, store, actions } from '../store'
 import { genAIResponse, type Message } from '../utils'
+
+// Lazy load heavy components that are not always visible
+const SettingsDialog = lazy(() => 
+  import('../components').then(module => ({ default: module.SettingsDialog }))
+)
+
+// Memoized message list to prevent unnecessary re-renders
+const MessageList = React.memo(({ 
+  messages, 
+  pendingMessage, 
+  isLoading 
+}: { 
+  messages: Message[], 
+  pendingMessage: Message | null, 
+  isLoading: boolean 
+}) => {
+  const allMessages = useMemo(() => 
+    [...messages, pendingMessage].filter((message): message is Message => message !== null),
+    [messages, pendingMessage]
+  )
+
+  return (
+    <div className="w-full max-w-3xl px-4 mx-auto">
+      {allMessages.map((message) => (
+        <ChatMessage key={message.id} message={message} />
+      ))}
+      {isLoading && <LoadingIndicator />}
+    </div>
+  )
+})
+
+MessageList.displayName = 'MessageList'
 
 function Home() {
   const {
@@ -30,7 +61,10 @@ function Home() {
   const messages = useMemo(() => currentConversation?.messages || [], [currentConversation]);
 
   // Check if Anthropic API key is defined
-  const isAnthropicKeyDefined = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY);
+  const isAnthropicKeyDefined = useMemo(() => 
+    Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY), 
+    []
+  );
 
   // Local state
   const [input, setInput] = useState('')
@@ -93,6 +127,7 @@ function Home() {
         role: 'assistant' as const,
         content: '',
       }
+      
       while (!done) {
         const out = await reader.read()
         done = out.done
@@ -106,25 +141,21 @@ function Home() {
               }
               setPendingMessage(newMessage)
             }
-          } catch (e) {
-            console.error('Error parsing streaming response:', e)
+          } catch (parseError) {
+            console.error('Error parsing chunk:', parseError)
+            continue
           }
         }
       }
 
-      setPendingMessage(null)
-      if (newMessage.content.trim()) {
-        // Add AI message to Convex
-        console.log('Adding AI response to conversation:', conversationId)
-        await addMessage(conversationId, newMessage)
-      }
+      await addMessage(conversationId, newMessage)
     } catch (error) {
-      console.error('Error in AI response:', error)
-      // Add an error message to the conversation
-      const errorMessage: Message = {
+      console.error('Error processing AI response:', error)
+      
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant' as const,
-        content: 'Sorry, I encountered an error generating a response. Please set the required API keys in your environment variables.',
+        content: 'Sorry, I encountered an error processing your request.',
       }
       await addMessage(conversationId, errorMessage)
     }
@@ -134,69 +165,40 @@ function Home() {
     e.preventDefault()
     if (!input.trim() || isLoading) return
 
-    const currentInput = input
-    setInput('') // Clear input early for better UX
-    setLoading(true)
     setError(null)
-    
-    const conversationTitle = createTitleFromInput(currentInput)
+    setLoading(true)
 
     try {
-      // Create the user message object
       const userMessage: Message = {
         id: Date.now().toString(),
-        role: 'user' as const,
-        content: currentInput.trim(),
+        role: 'user',
+        content: input.trim(),
       }
-      
+
+      // Add pending message for immediate UI feedback
+      setPendingMessage(userMessage)
+
       let conversationId = currentConversationId
 
-      // If no current conversation, create one in Convex first
+      // Create new conversation if none exists
       if (!conversationId) {
-        try {
-          console.log('Creating new Convex conversation with title:', conversationTitle)
-          // Create a new conversation with our title
-          const convexId = await createNewConversation(conversationTitle)
-          
-          if (convexId) {
-            console.log('Successfully created Convex conversation with ID:', convexId)
-            conversationId = convexId
-            
-            // Add user message directly to Convex
-            console.log('Adding user message to Convex conversation:', userMessage.content)
-            await addMessage(conversationId, userMessage)
-          } else {
-            console.warn('Failed to create Convex conversation, falling back to local')
-            // Fallback to local storage if Convex creation failed
-            const tempId = Date.now().toString()
-            const tempConversation = {
-              id: tempId,
-              title: conversationTitle,
-              messages: [],
-            }
-            
-            actions.addConversation(tempConversation)
-            conversationId = tempId
-            
-            // Add user message to local state
-            actions.addMessage(conversationId, userMessage)
-          }
-        } catch (error) {
-          console.error('Error creating conversation:', error)
-          throw new Error('Failed to create conversation')
-        }
-      } else {
-        // We already have a conversation ID, add message directly to Convex
-        console.log('Adding user message to existing conversation:', conversationId)
-        await addMessage(conversationId, userMessage)
+        const title = createTitleFromInput(input)
+        const newConversation = await createNewConversation(title)
+        conversationId = newConversation.id
       }
-      
-      // Process with AI after message is stored
+
+      // Add user message
+      await addMessage(conversationId, userMessage)
+      setPendingMessage(null)
+      setInput('')
+
+      // Process AI response
       await processAIResponse(conversationId, userMessage)
-      
     } catch (error) {
-      console.error('Error:', error)
-      const errorMessage: Message = {
+      console.error('Error in handleSubmit:', error)
+      setPendingMessage(null)
+      
+      const errorMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant' as const,
         content: 'Sorry, I encountered an error processing your request.',
@@ -230,12 +232,15 @@ function Home() {
     setEditingTitle('')
   }, [updateConversationTitle]);
 
+  const handleSettingsOpen = useCallback(() => setIsSettingsOpen(true), [])
+  const handleSettingsClose = useCallback(() => setIsSettingsOpen(false), [])
+
   return (
     <div className="relative flex h-screen bg-gray-900">
       {/* Settings Button */}
       <div className="absolute z-50 top-5 right-5">
         <button
-          onClick={() => setIsSettingsOpen(true)}
+          onClick={handleSettingsOpen}
           className="flex items-center justify-center w-10 h-10 text-white transition-opacity rounded-full bg-gradient-to-r from-orange-500 to-red-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
           <Settings className="w-5 h-5" />
@@ -274,14 +279,11 @@ function Home() {
               ref={messagesContainerRef}
               className="flex-1 pb-24 overflow-y-auto"
             >
-              <div className="w-full max-w-3xl px-4 mx-auto">
-                {[...messages, pendingMessage]
-                  .filter((message): message is Message => message !== null)
-                  .map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))}
-                {isLoading && <LoadingIndicator />}
-              </div>
+              <MessageList 
+                messages={messages}
+                pendingMessage={pendingMessage}
+                isLoading={isLoading}
+              />
             </div>
 
             {/* Input */}
@@ -302,11 +304,13 @@ function Home() {
         )}
       </div>
 
-      {/* Settings Dialog */}
-      <SettingsDialog
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      {/* Settings Dialog - Lazy loaded */}
+      <Suspense fallback={null}>
+        <SettingsDialog
+          isOpen={isSettingsOpen}
+          onClose={handleSettingsClose}
+        />
+      </Suspense>
     </div>
   )
 }

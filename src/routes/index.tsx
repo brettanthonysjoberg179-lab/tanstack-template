@@ -1,8 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense } from 'react'
 import { Settings } from 'lucide-react'
 import { 
-  SettingsDialog, 
   ChatMessage, 
   LoadingIndicator, 
   ChatInput, 
@@ -11,6 +10,45 @@ import {
 } from '../components'
 import { useConversations, useAppState, store, actions } from '../store'
 import { genAIResponse, type Message } from '../utils'
+
+// Lazy load SettingsDialog to reduce initial bundle size
+const SettingsDialog = lazy(() => import('../components/SettingsDialog').then(module => ({ default: module.SettingsDialog })))
+
+// Memoized message list component to prevent unnecessary re-renders
+const MessageList = memo(({ 
+  messages, 
+  pendingMessage, 
+  isLoading 
+}: { 
+  messages: Message[]
+  pendingMessage: Message | null
+  isLoading: boolean 
+}) => (
+  <div className="w-full max-w-3xl px-4 mx-auto">
+    {[...messages, pendingMessage]
+      .filter((message): message is Message => message !== null)
+      .map((message) => (
+        <ChatMessage key={message.id} message={message} />
+      ))}
+    {isLoading && <LoadingIndicator />}
+  </div>
+))
+
+// Memoized error display component
+const ErrorDisplay = memo(({ error }: { error: string | null }) => {
+  if (!error) return null
+  return (
+    <p className="w-full max-w-3xl p-4 mx-auto font-bold text-orange-500">{error}</p>
+  )
+})
+
+// Memoized API key warning component
+const ApiKeyWarning = memo(() => (
+  <div className="w-full max-w-3xl px-2 py-2 mx-auto mt-4 mb-2 font-medium text-center text-white bg-orange-500 rounded-md text-sm">
+    <p>This app requires an Anthropic API key to work properly. Update your <code>.env</code> file or get a <a href='https://console.anthropic.com/settings/keys' className='underline'>new Anthropic key</a>.</p>
+    <p>For local development, use <a href='https://www.netlify.com/products/dev/' className='underline'>netlify dev</a> to automatically load environment variables.</p>
+  </div>
+))
 
 function Home() {
   const {
@@ -230,6 +268,39 @@ function Home() {
     setEditingTitle('')
   }, [updateConversationTitle]);
 
+  // Memoize sidebar props to prevent unnecessary re-renders
+  const sidebarProps = useMemo(() => ({
+    conversations,
+    currentConversationId,
+    handleNewChat,
+    setCurrentConversationId,
+    handleDeleteChat,
+    editingChatId,
+    setEditingChatId,
+    editingTitle,
+    setEditingTitle,
+    handleUpdateChatTitle,
+  }), [
+    conversations,
+    currentConversationId,
+    handleNewChat,
+    setCurrentConversationId,
+    handleDeleteChat,
+    editingChatId,
+    setEditingChatId,
+    editingTitle,
+    setEditingTitle,
+    handleUpdateChatTitle,
+  ])
+
+  // Memoize chat input props
+  const chatInputProps = useMemo(() => ({
+    input,
+    setInput,
+    handleSubmit,
+    isLoading,
+  }), [input, setInput, handleSubmit, isLoading])
+
   return (
     <div className="relative flex h-screen bg-gray-900">
       {/* Settings Button */}
@@ -243,30 +314,12 @@ function Home() {
       </div>
 
       {/* Sidebar */}
-      <Sidebar 
-        conversations={conversations}
-        currentConversationId={currentConversationId}
-        handleNewChat={handleNewChat}
-        setCurrentConversationId={setCurrentConversationId}
-        handleDeleteChat={handleDeleteChat}
-        editingChatId={editingChatId}
-        setEditingChatId={setEditingChatId}
-        editingTitle={editingTitle}
-        setEditingTitle={setEditingTitle}
-        handleUpdateChatTitle={handleUpdateChatTitle}
-      />
+      <Sidebar {...sidebarProps} />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1">
-        {!isAnthropicKeyDefined && (
-          <div className="w-full max-w-3xl px-2 py-2 mx-auto mt-4 mb-2 font-medium text-center text-white bg-orange-500 rounded-md text-sm">
-            <p>This app requires an Anthropic API key to work properly. Update your <code>.env</code> file or get a <a href='https://console.anthropic.com/settings/keys' className='underline'>new Anthropic key</a>.</p>
-            <p>For local development, use <a href='https://www.netlify.com/products/dev/' className='underline'>netlify dev</a> to automatically load environment variables.</p>
-          </div>
-        )}
-        {error && (
-          <p className="w-full max-w-3xl p-4 mx-auto font-bold text-orange-500">{error}</p>
-        )}
+        {!isAnthropicKeyDefined && <ApiKeyWarning />}
+        <ErrorDisplay error={error} />
         {currentConversationId ? (
           <>
             {/* Messages */}
@@ -274,39 +327,28 @@ function Home() {
               ref={messagesContainerRef}
               className="flex-1 pb-24 overflow-y-auto"
             >
-              <div className="w-full max-w-3xl px-4 mx-auto">
-                {[...messages, pendingMessage]
-                  .filter((message): message is Message => message !== null)
-                  .map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))}
-                {isLoading && <LoadingIndicator />}
-              </div>
+              <MessageList 
+                messages={messages}
+                pendingMessage={pendingMessage}
+                isLoading={isLoading}
+              />
             </div>
 
             {/* Input */}
-            <ChatInput 
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              isLoading={isLoading}
-            />
+            <ChatInput {...chatInputProps} />
           </>
         ) : (
-          <WelcomeScreen 
-            input={input}
-            setInput={setInput}
-            handleSubmit={handleSubmit}
-            isLoading={isLoading}
-          />
+          <WelcomeScreen {...chatInputProps} />
         )}
       </div>
 
       {/* Settings Dialog */}
-      <SettingsDialog
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      <Suspense fallback={<div>Loading Settings...</div>}>
+        <SettingsDialog
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      </Suspense>
     </div>
   )
 }

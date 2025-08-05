@@ -1,4 +1,4 @@
-import ReactMarkdown from 'react-markdown'
+import { Suspense } from 'react'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize from 'rehype-sanitize'
 import rehypeHighlight from 'rehype-highlight'
@@ -23,16 +23,18 @@ export const ChatMessage = ({ message }: { message: Message }) => (
         </div>
       )}
       <div className="flex-1 min-w-0 mr-4">
-        <ReactMarkdown
-          className="prose dark:prose-invert max-w-none"
-          rehypePlugins={[
-            rehypeRaw,
-            rehypeSanitize,
-            rehypeHighlight,
-          ]}
-        >
-          {message.content}
-        </ReactMarkdown>
+        <Suspense fallback={<span className="text-sm text-gray-400">Loading…</span>}>
+          <ReactMarkdown
+            className="prose dark:prose-invert max-w-none"
+            rehypePlugins={[
+              rehypeRaw,
+              rehypeSanitize,
+              rehypeHighlight,
+            ]}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Suspense>
       </div>
     </div>
   </div>

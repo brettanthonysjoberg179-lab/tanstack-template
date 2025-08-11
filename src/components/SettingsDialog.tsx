@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { PlusCircle, Trash2 } from 'lucide-react'
 import { useAppState } from '../store/hooks'
 
@@ -7,30 +7,36 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
-export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+export const SettingsDialog = React.memo(({ isOpen, onClose }: SettingsDialogProps) => {
   const [promptForm, setPromptForm] = useState({ name: '', content: '' })
   const [isAddingPrompt, setIsAddingPrompt] = useState(false)
   const { prompts, createPrompt, deletePrompt, setPromptActive } = useAppState()
 
-  const handleAddPrompt = () => {
+  const handleAddPrompt = useCallback(() => {
     if (!promptForm.name.trim() || !promptForm.content.trim()) return
     createPrompt(promptForm.name, promptForm.content)
     setPromptForm({ name: '', content: '' })
     setIsAddingPrompt(false)
-  }
+  }, [promptForm.name, promptForm.content, createPrompt])
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     onClose()
     setIsAddingPrompt(false)
     setPromptForm({ name: '', content: '' })
-  }
+  }, [onClose])
 
+  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) handleClose()
+  }, [handleClose])
+
+  // Don't render if not open - early return to avoid unnecessary DOM
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => {
-      if (e.target === e.currentTarget) handleClose()
-    }}>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" 
+      onClick={handleBackdropClick}
+    >
       <div className="bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -145,4 +151,6 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
       </div>
     </div>
   )
-} 
+})
+
+SettingsDialog.displayName = 'SettingsDialog' 

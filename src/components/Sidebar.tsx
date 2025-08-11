@@ -1,3 +1,4 @@
+import React, { useCallback } from 'react';
 import { PlusCircle, MessageCircle, Trash2, Edit2 } from 'lucide-react';
 
 interface SidebarProps {
@@ -13,7 +14,89 @@ interface SidebarProps {
   handleUpdateChatTitle: (id: string, title: string) => void;
 }
 
-export const Sidebar = ({ 
+// Memoized conversation item to prevent unnecessary re-renders
+const ConversationItem = React.memo(({ 
+  chat, 
+  isActive, 
+  isEditing, 
+  editingTitle,
+  onSelect,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onDelete,
+  onTitleChange 
+}: {
+  chat: { id: string; title: string };
+  isActive: boolean;
+  isEditing: boolean;
+  editingTitle: string;
+  onSelect: () => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
+  onTitleChange: (value: string) => void;
+}) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onSaveEdit()
+    } else if (e.key === 'Escape') {
+      onCancelEdit()
+    }
+  }, [onSaveEdit, onCancelEdit])
+
+  return (
+    <div
+      className={`group flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-700/50 ${
+        isActive ? 'bg-gray-700/50' : ''
+      }`}
+      onClick={onSelect}
+    >
+      <MessageCircle className="w-4 h-4 text-gray-400" />
+      {isEditing ? (
+        <input
+          type="text"
+          value={editingTitle}
+          onChange={(e) => onTitleChange(e.target.value)}
+          onBlur={onSaveEdit}
+          onKeyDown={handleKeyDown}
+          className="flex-1 px-2 py-1 text-sm text-white bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-orange-500"
+          autoFocus
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : (
+        <>
+          <span className="flex-1 text-sm text-gray-200 truncate">{chat.title}</span>
+          <div className="items-center hidden gap-1 group-hover:flex">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onStartEdit()
+              }}
+              className="p-1 text-gray-400 hover:text-white"
+            >
+              <Edit2 className="w-3 h-3" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              className="p-1 text-gray-400 hover:text-red-500"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+})
+
+ConversationItem.displayName = 'ConversationItem';
+
+export const Sidebar = React.memo(({ 
   conversations, 
   currentConversationId, 
   handleNewChat, 
@@ -24,81 +107,66 @@ export const Sidebar = ({
   editingTitle, 
   setEditingTitle, 
   handleUpdateChatTitle 
-}: SidebarProps) => (
-  <div className="flex flex-col w-64 bg-gray-800 border-r border-gray-700">
-    <div className="p-4 border-b border-gray-700">
-      <button
-        onClick={handleNewChat}
-        className="flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium text-white rounded-lg bg-gradient-to-r from-orange-500 to-red-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-orange-500"
-      >
-        <PlusCircle className="w-4 h-4" />
-        New Chat
-      </button>
-    </div>
+}: SidebarProps) => {
 
-    {/* Chat List */}
-    <div className="flex-1 overflow-y-auto">
-      {conversations.map((chat) => (
-        <div
-          key={chat.id}
-          className={`group flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-700/50 ${
-            chat.id === currentConversationId ? 'bg-gray-700/50' : ''
-          }`}
-          onClick={() => setCurrentConversationId(chat.id)}
+  const createHandlers = useCallback((chatId: string, chatTitle: string) => ({
+    onSelect: () => setCurrentConversationId(chatId),
+    onStartEdit: () => {
+      setEditingChatId(chatId)
+      setEditingTitle(chatTitle)
+    },
+    onCancelEdit: () => {
+      setEditingChatId(null)
+      setEditingTitle('')
+    },
+    onSaveEdit: () => {
+      if (editingTitle.trim()) {
+        handleUpdateChatTitle(chatId, editingTitle.trim())
+      }
+      setEditingChatId(null)
+      setEditingTitle('')
+    },
+    onDelete: () => handleDeleteChat(chatId),
+    onTitleChange: setEditingTitle
+  }), [
+    setCurrentConversationId, 
+    setEditingChatId, 
+    setEditingTitle, 
+    handleUpdateChatTitle, 
+    handleDeleteChat, 
+    editingTitle
+  ])
+
+  return (
+    <div className="flex flex-col w-64 bg-gray-800 border-r border-gray-700">
+      <div className="p-4 border-b border-gray-700">
+        <button
+          onClick={handleNewChat}
+          className="flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium text-white rounded-lg bg-gradient-to-r from-orange-500 to-red-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-orange-500"
         >
-          <MessageCircle className="w-4 h-4 text-gray-400" />
-          {editingChatId === chat.id ? (
-            <input
-              type="text"
-              value={editingTitle}
-              onChange={(e) => setEditingTitle(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              onBlur={() => {
-                if (editingTitle.trim()) {
-                  handleUpdateChatTitle(chat.id, editingTitle)
-                }
-                setEditingChatId(null)
-                setEditingTitle('')
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && editingTitle.trim()) {
-                  handleUpdateChatTitle(chat.id, editingTitle)
-                } else if (e.key === 'Escape') {
-                  setEditingChatId(null)
-                  setEditingTitle('')
-                }
-              }}
-              className="flex-1 text-sm text-white bg-transparent focus:outline-none"
-              autoFocus
+          <PlusCircle className="w-4 h-4" />
+          New Chat
+        </button>
+      </div>
+
+      {/* Chat List */}
+      <div className="flex-1 overflow-y-auto">
+        {conversations.map((chat) => {
+          const handlers = createHandlers(chat.id, chat.title)
+          return (
+            <ConversationItem
+              key={chat.id}
+              chat={chat}
+              isActive={chat.id === currentConversationId}
+              isEditing={editingChatId === chat.id}
+              editingTitle={editingTitle}
+              {...handlers}
             />
-          ) : (
-            <span className="flex-1 text-sm text-gray-300 truncate">
-              {chat.title}
-            </span>
-          )}
-          <div className="items-center hidden gap-1 group-hover:flex">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditingChatId(chat.id)
-                setEditingTitle(chat.title)
-              }}
-              className="p-1 text-gray-400 hover:text-white"
-            >
-              <Edit2 className="w-3 h-3" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteChat(chat.id)
-              }}
-              className="p-1 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-      ))}
+          )
+        })}
+      </div>
     </div>
-  </div>
-); 
+  )
+})
+
+Sidebar.displayName = 'Sidebar'; 

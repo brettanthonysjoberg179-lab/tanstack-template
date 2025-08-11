@@ -32,6 +32,30 @@ const initialState: State = {
 
 export const store = new Store<State>(initialState)
 
+// Memoized selectors to prevent unnecessary re-renders
+export const selectors = {
+  getConversations: (state: State) => state.conversations,
+  getCurrentConversationId: (state: State) => state.currentConversationId,
+  getIsLoading: (state: State) => state.isLoading,
+  getPrompts: (state: State) => state.prompts,
+  
+  // Memoized selector for current conversation
+  getCurrentConversation: (state: State) => {
+    if (!state.currentConversationId) return null
+    return state.conversations.find(conv => conv.id === state.currentConversationId) || null
+  },
+  
+  // Memoized selector for active prompt
+  getActivePrompt: (state: State) => {
+    return state.prompts.find(prompt => prompt.is_active) || null
+  },
+  
+  // Memoized selector for conversation by ID
+  getConversationById: (state: State, id: string) => {
+    return state.conversations.find(conv => conv.id === id) || null
+  },
+}
+
 export const actions = {
   // Prompt actions
   createPrompt: (name: string, content: string) => {
@@ -103,7 +127,7 @@ export const actions = {
   updateConversationId: (oldId: string, newId: string) => {
     store.setState(state => ({
       ...state,
-      conversations: state.conversations.map(conv =>
+      conversations: state.conversations.map(conv => 
         conv.id === oldId ? { ...conv, id: newId } : conv
       ),
       currentConversationId: state.currentConversationId === oldId ? newId : state.currentConversationId
@@ -120,11 +144,14 @@ export const actions = {
   },
 
   deleteConversation: (id: string) => {
-    store.setState(state => ({
-      ...state,
-      conversations: state.conversations.filter(conv => conv.id !== id),
-      currentConversationId: state.currentConversationId === id ? null : state.currentConversationId
-    }))
+    store.setState(state => {
+      const updatedConversations = state.conversations.filter(conv => conv.id !== id)
+      return {
+        ...state,
+        conversations: updatedConversations,
+        currentConversationId: state.currentConversationId === id ? null : state.currentConversationId
+      }
+    })
   },
 
   addMessage: (conversationId: string, message: Message) => {
@@ -138,18 +165,7 @@ export const actions = {
     }))
   },
 
-  setLoading: (isLoading: boolean) => {
-    store.setState(state => ({ ...state, isLoading }))
-  }
-}
-
-// Selectors
-export const selectors = {
-  getActivePrompt: (state: State) => state.prompts.find(p => p.is_active),
-  getCurrentConversation: (state: State) => 
-    state.conversations.find(c => c.id === state.currentConversationId),
-  getPrompts: (state: State) => state.prompts,
-  getConversations: (state: State) => state.conversations,
-  getCurrentConversationId: (state: State) => state.currentConversationId,
-  getIsLoading: (state: State) => state.isLoading
+  setLoading: (loading: boolean) => {
+    store.setState(state => ({ ...state, isLoading: loading }))
+  },
 } 

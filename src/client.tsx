@@ -4,9 +4,23 @@ import * as Sentry from '@sentry/react'
 
 import { createRouter } from './router'
 import { initSentry } from './sentry'
+import { initWebVitals, analyzeBundleSize } from './utils/web-vitals'
 
 // Initialize Sentry (will be skipped if DSN is not defined)
 initSentry()
+
+// Initialize performance monitoring
+if (typeof window !== 'undefined') {
+  // Initialize web vitals monitoring
+  initWebVitals();
+  
+  // Analyze bundle size after load
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      analyzeBundleSize();
+    }, 1000);
+  });
+}
 
 const router = createRouter()
 

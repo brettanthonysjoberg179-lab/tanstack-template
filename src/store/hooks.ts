@@ -5,7 +5,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { Message } from '../utils/ai';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 
 // Check if Convex URL is provided
 const isConvexAvailable = Boolean(import.meta.env.VITE_CONVEX_URL);
@@ -17,7 +17,8 @@ export function useAppState() {
   const currentConversationId = useStore(store, s => selectors.getCurrentConversationId(s));
   const prompts = useStore(store, s => selectors.getPrompts(s));
   
-  return {
+  // Memoize the return object to prevent unnecessary re-renders
+  return useMemo(() => ({
     conversations,
     currentConversationId,
     isLoading,
@@ -37,7 +38,7 @@ export function useAppState() {
     // Selectors
     getCurrentConversation: selectors.getCurrentConversation,
     getActivePrompt: selectors.getActivePrompt,
-  };
+  }), [conversations, currentConversationId, isLoading, prompts]);
 }
 
 // Hook for Convex integration with fallback to local state
@@ -55,7 +56,7 @@ export function useConversations() {
   // Convex mutations (only if Convex is available)
   const createConversation = isConvexAvailable ? useMutation(api.conversations.create) : null;
   const updateTitle = isConvexAvailable ? useMutation(api.conversations.updateTitle) : null;
-  const deleteConversation = isConvexAvailable ? useMutation(api.conversations.remove) : null;
+  const deleteConversationMutation = isConvexAvailable ? useMutation(api.conversations.remove) : null;
   const addMessageToConversation = isConvexAvailable ? useMutation(api.conversations.addMessage) : null;
   
   // Convert Convex conversations to local format if available
@@ -71,92 +72,108 @@ export function useConversations() {
     }
   }, [convexConversations]);
   
-  return {
+  // Memoize callbacks to prevent unnecessary re-renders
+  const setCurrentConversationId = useCallback((id: string | null) => {
+    actions.setCurrentConversationId(id);
+  }, []);
+  
+  const createNewConversation = useCallback(async (title: string = 'New Conversation') => {
+    const id = uuidv4();
+    const newConversation: Conversation = {
+      id,
+      title,
+      messages: [],
+    };
+    
+    // First update local state for immediate UI feedback
+    actions.addConversation(newConversation);
+    
+    // Then create in Convex database if available
+    if (isConvexAvailable && createConversation) {
+      try {
+        const convexId = await createConversation({
+          title,
+          messages: [],
+        });
+        
+        // Update the local conversation with the Convex ID
+        actions.updateConversationId(id, convexId);
+        actions.setCurrentConversationId(convexId);
+        
+        return convexId;
+      } catch (error) {
+        console.error('Failed to create conversation in Convex:', error);
+      }
+    }
+    
+    // If Convex is not available or there was an error, just use the local ID
+    actions.setCurrentConversationId(id);
+    return id;
+  }, [createConversation]);
+  
+  const updateConversationTitle = useCallback(async (id: string, title: string) => {
+    // First update local state
+    actions.updateConversationTitle(id, title);
+    
+    // Then update in Convex if available
+    if (isConvexAvailable && updateTitle) {
+      try {
+        await updateTitle({ id: id as Id<'conversations'>, title });
+      } catch (error) {
+        console.error('Failed to update conversation title in Convex:', error);
+      }
+    }
+  }, [updateTitle]);
+  
+  const deleteConversation = useCallback(async (id: string) => {
+    // First update local state
+    actions.deleteConversation(id);
+    
+    // Then delete from Convex if available
+    if (isConvexAvailable && deleteConversationMutation) {
+      try {
+        await deleteConversationMutation({ id: id as Id<'conversations'> });
+      } catch (error) {
+        console.error('Failed to delete conversation from Convex:', error);
+      }
+    }
+  }, [deleteConversationMutation]);
+  
+  const addMessage = useCallback(async (conversationId: string, message: Message) => {
+    // First update local state
+    actions.addMessage(conversationId, message);
+    
+    // Then add to Convex if available
+    if (isConvexAvailable && addMessageToConversation) {
+      try {
+        await addMessageToConversation({
+          conversationId: conversationId as Id<'conversations'>,
+          message,
+        });
+      } catch (error) {
+        console.error('Failed to add message to Convex:', error);
+      }
+    }
+  }, [addMessageToConversation]);
+  
+  // Memoize the return object to prevent unnecessary re-renders
+  return useMemo(() => ({
     conversations,
     currentConversationId,
     currentConversation,
-    
-    setCurrentConversationId: (id: string | null) => {
-      actions.setCurrentConversationId(id);
-    },
-    
-    createNewConversation: async (title: string = 'New Conversation') => {
-      const id = uuidv4();
-      const newConversation: Conversation = {
-        id,
-        title,
-        messages: [],
-      };
-      
-      // First update local state for immediate UI feedback
-      actions.addConversation(newConversation);
-      
-      // Then create in Convex database if available
-      if (isConvexAvailable && createConversation) {
-        try {
-          const convexId = await createConversation({
-            title,
-            messages: [],
-          });
-          
-          // Update the local conversation with the Convex ID
-          actions.updateConversationId(id, convexId);
-          actions.setCurrentConversationId(convexId);
-          
-          return convexId;
-        } catch (error) {
-          console.error('Failed to create conversation in Convex:', error);
-        }
-      }
-      
-      // If Convex is not available or there was an error, just use the local ID
-      actions.setCurrentConversationId(id);
-      return id;
-    },
-    
-    updateConversationTitle: async (id: string, title: string) => {
-      // First update local state
-      actions.updateConversationTitle(id, title);
-      
-      // Then update in Convex if available
-      if (isConvexAvailable && updateTitle) {
-        try {
-          await updateTitle({ id: id as Id<'conversations'>, title });
-        } catch (error) {
-          console.error('Failed to update conversation title in Convex:', error);
-        }
-      }
-    },
-    
-    deleteConversation: async (id: string) => {
-      // First update local state
-      actions.deleteConversation(id);
-      
-      // Then delete from Convex if available
-      if (isConvexAvailable && deleteConversation) {
-        try {
-          await deleteConversation({ id: id as Id<'conversations'> });
-        } catch (error) {
-          console.error('Failed to delete conversation from Convex:', error);
-        }
-      }
-    },
-    
-    addMessage: async (conversationId: string, message: Message) => {
-      // First update local state
-      actions.addMessage(conversationId, message);
-      
-      // Then add to Convex if available
-      if (isConvexAvailable && addMessageToConversation) {
-        try {
-          await addMessageToConversation({
-            conversationId: conversationId as Id<'conversations'>,
-            message,
-          });
-        } catch (error) {
-          console.error('Failed to add message to Convex:', error);
-        }
-      }
-    },
-  };
+    setCurrentConversationId,
+    createNewConversation,
+    updateConversationTitle,
+    deleteConversation,
+    addMessage,
+  }), [
+    conversations,
+    currentConversationId,
+    currentConversation,
+    setCurrentConversationId,
+    createNewConversation,
+    updateConversationTitle,
+    deleteConversation,
+    addMessage,
+  ]);
 } 

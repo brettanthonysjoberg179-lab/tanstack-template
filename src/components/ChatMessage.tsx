@@ -1,10 +1,22 @@
-import ReactMarkdown from 'react-markdown'
-import rehypeRaw from 'rehype-raw'
-import rehypeSanitize from 'rehype-sanitize'
-import rehypeHighlight from 'rehype-highlight'
+import { lazy, Suspense, memo } from 'react'
 import type { Message } from '../utils/ai'
 
-export const ChatMessage = ({ message }: { message: Message }) => (
+// Lazy load markdown components to reduce initial bundle size
+const ReactMarkdown = lazy(() => import('react-markdown'))
+const rehypeRaw = lazy(() => import('rehype-raw'))
+const rehypeSanitize = lazy(() => import('rehype-sanitize'))
+const rehypeHighlight = lazy(() => import('rehype-highlight'))
+
+// Simple fallback component
+const MarkdownFallback = () => (
+  <div className="animate-pulse">
+    <div className="h-4 bg-gray-700 rounded mb-2"></div>
+    <div className="h-4 bg-gray-700 rounded mb-2 w-3/4"></div>
+    <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+  </div>
+)
+
+export const ChatMessage = memo(({ message }: { message: Message }) => (
   <div
     className={`py-6 ${
       message.role === 'assistant'
@@ -23,17 +35,19 @@ export const ChatMessage = ({ message }: { message: Message }) => (
         </div>
       )}
       <div className="flex-1 min-w-0 mr-4">
-        <ReactMarkdown
-          className="prose dark:prose-invert max-w-none"
-          rehypePlugins={[
-            rehypeRaw,
-            rehypeSanitize,
-            rehypeHighlight,
-          ]}
-        >
-          {message.content}
-        </ReactMarkdown>
+        <Suspense fallback={<MarkdownFallback />}>
+          <ReactMarkdown
+            className="prose dark:prose-invert max-w-none"
+            rehypePlugins={[
+              rehypeRaw,
+              rehypeSanitize,
+              rehypeHighlight,
+            ]}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Suspense>
       </div>
     </div>
   </div>
-); 
+)) 

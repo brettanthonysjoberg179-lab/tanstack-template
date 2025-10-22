@@ -6,3 +6,6 @@ dist-ssr
 .vinxi
 .netlify
 .env
+
+# Edge function custom config
+netlify/edge-functions/config.ts

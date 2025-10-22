@@ -1,2 +1,13 @@
 [template.environment]
 VITE_ANTHROPIC_API_KEY="Add your Anthropic API key here"
+
+# Edge Functions Configuration
+[[edge_functions]]
+  function = "api-key-handler"
+  path = "/api/key/*"
+
+[build]
+  publish = "dist"
+  
+[build.environment]
+  NODE_VERSION = "20.9.0"

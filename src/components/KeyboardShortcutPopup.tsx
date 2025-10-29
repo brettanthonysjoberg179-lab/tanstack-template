@@ -15,6 +15,37 @@ interface GoogleAPIOption {
   description: string
 }
 
+// API Response Interfaces
+interface TranslationResponse {
+  responseStatus: number
+  responseData: {
+    translatedText: string
+  }
+}
+
+interface GoogleBooksVolume {
+  volumeInfo: {
+    title: string
+    authors?: string[]
+    description?: string
+  }
+}
+
+interface GoogleBooksResponse {
+  items?: GoogleBooksVolume[]
+}
+
+interface WikipediaSearchResult {
+  title: string
+  snippet: string
+}
+
+interface WikipediaResponse {
+  query?: {
+    search: WikipediaSearchResult[]
+  }
+}
+
 const GOOGLE_API_OPTIONS: GoogleAPIOption[] = [
   { id: 'translate', name: 'Google Translate', icon: Languages, description: 'Translate text to different languages' },
   { id: 'books', name: 'Google Books', icon: Book, description: 'Search for books and get information' },
@@ -83,8 +114,14 @@ export function KeyboardShortcutPopup({ isOpen, onClose }: KeyboardShortcutPopup
       const response = await fetch(
         `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToTranslate)}&langpair=en|${targetLang}`
       )
-      const data = await response.json()
-      if (data.responseStatus === 200 || data.responseData?.translatedText) {
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json() as TranslationResponse
+      
+      if (data.responseStatus === 200 && data.responseData?.translatedText) {
         return data.responseData.translatedText
       }
       throw new Error('Translation failed')
@@ -100,10 +137,15 @@ export function KeyboardShortcutPopup({ isOpen, onClose }: KeyboardShortcutPopup
       const response = await fetch(
         `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=5`
       )
-      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json() as GoogleBooksResponse
       
       if (data.items && data.items.length > 0) {
-        const books = data.items.map((item: any) => {
+        const books = data.items.map((item: GoogleBooksVolume) => {
           const volumeInfo = item.volumeInfo
           return `📚 ${volumeInfo.title}${volumeInfo.authors ? ' by ' + volumeInfo.authors.join(', ') : ''}\n   ${volumeInfo.description?.substring(0, 150) || 'No description available'}...`
         }).join('\n\n')
@@ -122,12 +164,19 @@ export function KeyboardShortcutPopup({ isOpen, onClose }: KeyboardShortcutPopup
       const response = await fetch(
         `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=5`
       )
-      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json() as WikipediaResponse
       
       if (data.query?.search && data.query.search.length > 0) {
-        const results = data.query.search.map((item: any) => {
-          // Remove HTML tags from snippet
-          const snippet = item.snippet.replace(/<[^>]*>/g, '')
+        const results = data.query.search.map((item: WikipediaSearchResult) => {
+          // Remove HTML tags from snippet using DOMParser for proper sanitization
+          const tempDiv = document.createElement('div')
+          tempDiv.innerHTML = item.snippet
+          const snippet = tempDiv.textContent || tempDiv.innerText || ''
           return `🔍 ${item.title}\n   ${snippet}...`
         }).join('\n\n')
         return `Found ${data.query.search.length} result(s):\n\n${results}`
@@ -218,7 +267,7 @@ export function KeyboardShortcutPopup({ isOpen, onClose }: KeyboardShortcutPopup
         </div>
 
         {/* API Selection */}
-        <div className="p-4 border-b border-gray-700 bg-gray-750">
+        <div className="p-4 border-b border-gray-700 bg-gray-700/50">
           <label className="block text-xs font-medium text-gray-300 mb-2">
             Select Google API
           </label>
@@ -246,7 +295,7 @@ export function KeyboardShortcutPopup({ isOpen, onClose }: KeyboardShortcutPopup
 
         {/* Additional Options */}
         {selectedAPI === 'translate' && (
-          <div className="px-4 py-3 bg-gray-750 border-b border-gray-700">
+          <div className="px-4 py-3 bg-gray-700/50 border-b border-gray-700">
             <label className="block text-xs font-medium text-gray-300 mb-2">
               Target Language
             </label>

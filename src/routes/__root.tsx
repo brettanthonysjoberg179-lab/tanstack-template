@@ -53,8 +53,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const handleCustomEvent = () => {
+      setIsShortcutPopupOpen(true)
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('openQuickActionPanel', handleCustomEvent)
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('openQuickActionPanel', handleCustomEvent)
+    }
   }, [])
 
   return (

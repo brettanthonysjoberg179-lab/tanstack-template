@@ -290,17 +290,14 @@ function Home() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                // Trigger the global keyboard shortcut
-                window.dispatchEvent(new KeyboardEvent('keydown', {
-                  key: 'k',
-                  ctrlKey: true,
-                  bubbles: true
-                }))
+                // Trigger the global keyboard shortcut using custom event
+                const event = new CustomEvent('openQuickActionPanel')
+                window.dispatchEvent(event)
               }}
               className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1.5"
-              title="Quick Action Panel (Ctrl+K)"
+              title="Quick Action Panel (Ctrl+K or Cmd+K)"
             >
-              <span>⌘K</span>
+              <span>Ctrl+K</span>
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}

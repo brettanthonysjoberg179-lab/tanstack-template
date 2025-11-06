@@ -72,6 +72,31 @@ export const addMessage = mutation({
   },
 });
 
+// Update a message in a conversation
+export const updateMessage = mutation({
+  args: {
+    conversationId: v.id("conversations"),
+    messageId: v.string(),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+    
+    const updatedMessages = conversation.messages.map(msg =>
+      msg.id === args.messageId
+        ? { ...msg, content: args.content }
+        : msg
+    );
+    
+    return await ctx.db.patch(args.conversationId, { 
+      messages: updatedMessages 
+    });
+  },
+});
+
 // Delete a conversation
 export const remove = mutation({
   args: { id: v.id("conversations") },

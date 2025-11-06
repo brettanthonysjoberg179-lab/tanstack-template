@@ -165,6 +165,24 @@ export const actions = {
     }))
   },
 
+  editMessage: (conversationId: string, messageId: string, newContent: string) => {
+    store.setState(state => ({
+      ...state,
+      conversations: state.conversations.map(conv =>
+        conv.id === conversationId
+          ? {
+              ...conv,
+              messages: conv.messages.map(msg =>
+                msg.id === messageId
+                  ? { ...msg, content: newContent }
+                  : msg
+              )
+            }
+          : conv
+      )
+    }))
+  },
+
   setLoading: (loading: boolean) => {
     store.setState(state => ({ ...state, isLoading: loading }))
   },

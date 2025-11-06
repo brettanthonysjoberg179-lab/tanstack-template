@@ -31,6 +31,7 @@ function Home() {
     updateConversationTitle,
     deleteConversation,
     addMessage,
+    editMessage,
   } = useConversations()
   
   const { isLoading, setLoading, getActivePrompt } = useAppState()
@@ -241,6 +242,15 @@ function Home() {
     }
   }, [updateConversationTitle]);
 
+  const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
+    if (!currentConversationId) return
+    try {
+      await editMessage(currentConversationId, messageId, newContent)
+    } catch (error) {
+      console.error('Error editing message:', error)
+    }
+  }, [currentConversationId, editMessage]);
+
   // Memoize sidebar props to prevent unnecessary re-renders
   const sidebarProps = useMemo(() => ({
     conversations,
@@ -301,7 +311,12 @@ function Home() {
           className="flex-1 overflow-y-auto p-4 space-y-4"
         >
           {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+            <ChatMessage 
+              key={message.id} 
+              message={message} 
+              onEdit={handleEditMessage}
+              isEditable={true}
+            />
           ))}
           
           {pendingMessage && (

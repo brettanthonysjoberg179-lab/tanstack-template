@@ -53,6 +53,7 @@ Clicking this button will create a new repo for you that looks exactly like this
 ### User Experience
 - 🎨 Modern UI with Tailwind CSS and Lucide icons
 - 🔍 Conversation management
+- ✏️ Edit messages after sending (user messages only)
 - 🔐 API key management
 - 📋 Markdown rendering with code highlighting
 
@@ -399,6 +400,34 @@ function Counter() {
 ```
 
 You can find out everything you need to know on how to use TanStack Store in the [TanStack Store documentation](https://tanstack.com/store/latest).
+
+## Message Editing
+
+This application supports editing user messages after they've been sent. This is useful for correcting typos, refining questions, or updating content without creating a new message.
+
+### How to Edit Messages
+
+1. **Hover over a user message** - An edit icon (pencil) will appear in the top-right corner of your message
+2. **Click the edit icon** - The message content becomes editable in a text area
+3. **Make your changes** - Edit the message content as needed
+4. **Save or cancel**:
+   - Click the **Save** button or press **Ctrl/Cmd + Enter** to save your changes
+   - Click the **Cancel** button or press **Esc** to discard your changes
+
+### Features
+
+- ✏️ **User messages only**: Only messages you've sent can be edited (AI responses cannot be edited)
+- 💾 **Persistent**: Edited messages are saved to your conversation history (both locally and in Convex if configured)
+- 🎨 **Inline editing**: Edit messages directly in the chat interface without opening a separate modal
+- ⌨️ **Keyboard shortcuts**: Use Ctrl/Cmd + Enter to save or Esc to cancel for faster editing
+- 👁️ **Hidden by default**: Edit buttons only appear when hovering over messages to keep the interface clean
+
+### Technical Details
+
+The message editing feature is implemented using:
+- **Local state management**: TanStack Store handles immediate UI updates
+- **Backend synchronization**: Convex database (if configured) persists edits across sessions
+- **Optimistic updates**: Changes appear immediately in the UI before being saved to the backend
 
 ## Learn More
 

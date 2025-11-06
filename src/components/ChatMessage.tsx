@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useCallback } from 'react'
+import { lazy, Suspense, useState, useCallback, useMemo } from 'react'
 import type { Message } from '../utils/ai'
 import { Pencil, Check, X } from 'lucide-react'
 
@@ -33,8 +33,10 @@ export const ChatMessage = ({ message, onEdit, isEditable = false }: ChatMessage
   }, [message.content])
 
   const handleSaveEdit = useCallback(() => {
-    if (editedContent.trim() && editedContent !== message.content) {
-      onEdit?.(message.id, editedContent.trim())
+    const trimmedContent = editedContent.trim()
+    const trimmedOriginal = message.content.trim()
+    if (trimmedContent && trimmedContent !== trimmedOriginal) {
+      onEdit?.(message.id, trimmedContent)
     }
     setIsEditing(false)
   }, [editedContent, message.id, message.content, onEdit])
@@ -51,6 +53,11 @@ export const ChatMessage = ({ message, onEdit, isEditable = false }: ChatMessage
       handleSaveEdit()
     }
   }, [handleCancelEdit, handleSaveEdit])
+
+  // Memoize textarea rows calculation to avoid unnecessary recalculations
+  const textareaRows = useMemo(() => {
+    return Math.min(Math.max(editedContent.split('\n').length, 3), 10)
+  }, [editedContent])
 
   return (
     <div
@@ -78,7 +85,7 @@ export const ChatMessage = ({ message, onEdit, isEditable = false }: ChatMessage
                 onChange={(e) => setEditedContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full p-3 text-sm text-white border rounded-lg resize-none border-orange-500/20 bg-gray-800/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-transparent"
-                rows={Math.min(Math.max(editedContent.split('\n').length, 3), 10)}
+                rows={textareaRows}
                 autoFocus
               />
               <div className="flex gap-2">

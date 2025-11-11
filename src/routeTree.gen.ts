@@ -11,9 +11,16 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as EbookMakerImport } from './routes/ebook-maker'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
+
+const EbookMakerRoute = EbookMakerImport.update({
+  id: '/ebook-maker',
+  path: '/ebook-maker',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
@@ -32,6 +39,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/ebook-maker': {
+      id: '/ebook-maker'
+      path: '/ebook-maker'
+      fullPath: '/ebook-maker'
+      preLoaderRoute: typeof EbookMakerImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -39,32 +53,37 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ebook-maker': typeof EbookMakerRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ebook-maker': typeof EbookMakerRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/ebook-maker': typeof EbookMakerRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/ebook-maker'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/ebook-maker'
+  id: '__root__' | '/' | '/ebook-maker'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EbookMakerRoute: typeof EbookMakerRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EbookMakerRoute: EbookMakerRoute,
 }
 
 export const routeTree = rootRoute
@@ -77,11 +96,15 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/"
+        "/",
+        "/ebook-maker"
       ]
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/ebook-maker": {
+      "filePath": "ebook-maker.tsx"
     }
   }
 }

@@ -26,6 +26,8 @@ A modern chat template built with TanStack Router and Claude AI integration feat
 - [Environment Configuration](#environment-configuration)
   - [Anthropic API Key](#anthropic-api-key)
   - [Convex Configuration (Optional)](#convex-configuration-optional)
+- [Edge Functions](#edge-functions)
+  - [API Key Handler](#api-key-handler)
 - [Routing](#routing)
   - [Adding A Route](#adding-a-route)
   - [Adding Links](#adding-links)
@@ -53,8 +55,9 @@ Clicking this button will create a new repo for you that looks exactly like this
 ### User Experience
 - 🎨 Modern UI with Tailwind CSS and Lucide icons
 - 🔍 Conversation management
-- 🔐 API key management
+- 🔐 Secure API key management with Edge Functions
 - 📋 Markdown rendering with code highlighting
+- 🛡️ Edge function proxy for secure API requests
 
 ## Architecture
 
@@ -291,6 +294,63 @@ For persistent storage of conversations:
 # .env file
 VITE_CONVEX_URL=your_convex_deployment_url
 ```
+
+## Edge Functions
+
+This project includes Netlify Edge Functions for secure API key management and request proxying.
+
+### API Key Handler
+
+The API Key Handler edge function (`netlify/edge-functions/api-key-handler.ts`) provides secure management of your Anthropic API key without exposing it to the client.
+
+**Features:**
+- 🔐 Secure API key storage (keys never exposed to the browser)
+- ✅ API key validation and testing
+- 🔄 Request proxying to Anthropic API
+- 🛡️ CORS support for browser requests
+- ⚙️ Configurable via environment variables
+
+**Endpoints:**
+
+The edge function is accessible at `/api/key/*` and supports three main actions:
+
+1. **Validate**: Check if an API key is configured
+   ```bash
+   POST /api/key/validate
+   Body: { "action": "validate" }
+   ```
+
+2. **Test**: Test if the API key works with Anthropic's API
+   ```bash
+   POST /api/key/test
+   Body: { "action": "test" }
+   ```
+
+3. **Proxy**: Proxy requests to Anthropic API (keeps your key secure)
+   ```bash
+   POST /api/key/proxy
+   Body: {
+     "action": "proxy",
+     "messages": [{"role": "user", "content": "Hello!"}],
+     "model": "claude-3-5-sonnet-20241022",
+     "max_tokens": 4096
+   }
+   ```
+
+**Configuration:**
+
+Set your API key in Netlify's environment variables:
+```bash
+ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+```
+
+**Testing:**
+
+Open `netlify/edge-functions/test-api-key.html` in your browser to test the edge function interactively.
+
+**Documentation:**
+
+See [netlify/edge-functions/README.md](netlify/edge-functions/README.md) for complete documentation, examples, and customization options.
 
 ## Routing
 This project uses [TanStack Router](https://tanstack.com/router). The initial setup is a file based router. Which means that the routes are managed as files in `src/routes`.

@@ -11,9 +11,16 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as BrettappsdevappImport } from './routes/brettappsdevapp'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
+
+const BrettappsdevappRoute = BrettappsdevappImport.update({
+  id: '/brettappsdevapp',
+  path: '/brettappsdevapp',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const IndexRoute = IndexImport.update({
   id: '/',
@@ -32,6 +39,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
+    '/brettappsdevapp': {
+      id: '/brettappsdevapp'
+      path: '/brettappsdevapp'
+      fullPath: '/brettappsdevapp'
+      preLoaderRoute: typeof BrettappsdevappImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -39,32 +53,37 @@ declare module '@tanstack/react-router' {
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/brettappsdevapp': typeof BrettappsdevappRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/brettappsdevapp': typeof BrettappsdevappRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
+  '/brettappsdevapp': typeof BrettappsdevappRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/brettappsdevapp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/brettappsdevapp'
+  id: '__root__' | '/' | '/brettappsdevapp'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BrettappsdevappRoute: typeof BrettappsdevappRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BrettappsdevappRoute: BrettappsdevappRoute,
 }
 
 export const routeTree = rootRoute
@@ -77,11 +96,15 @@ export const routeTree = rootRoute
     "__root__": {
       "filePath": "__root.tsx",
       "children": [
-        "/"
+        "/",
+        "/brettappsdevapp"
       ]
     },
     "/": {
       "filePath": "index.tsx"
+    },
+    "/brettappsdevapp": {
+      "filePath": "brettappsdevapp.tsx"
     }
   }
 }

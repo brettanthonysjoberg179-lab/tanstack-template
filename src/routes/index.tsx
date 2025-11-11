@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react'
 import { Settings } from 'lucide-react'
 import { 
@@ -286,7 +286,15 @@ function Home() {
       <div className="flex flex-col flex-1">
         {/* Header */}
         <header className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h1 className="text-xl font-semibold text-white">TanStack Chat</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-semibold text-white">TanStack Chat</h1>
+            <Link
+              to="/brettappsdevapp"
+              className="text-sm text-gray-400 hover:text-orange-500 transition-colors"
+            >
+              Brett Apps
+            </Link>
+          </div>
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"

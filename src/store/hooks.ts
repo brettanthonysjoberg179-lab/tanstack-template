@@ -57,6 +57,7 @@ export function useConversations() {
   const updateTitle = isConvexAvailable ? useMutation(api.conversations.updateTitle) : null;
   const deleteConversation = isConvexAvailable ? useMutation(api.conversations.remove) : null;
   const addMessageToConversation = isConvexAvailable ? useMutation(api.conversations.addMessage) : null;
+  const updateMessage = isConvexAvailable ? useMutation(api.conversations.updateMessage) : null;
   
   // Convert Convex conversations to local format if available
   useEffect(() => {
@@ -155,6 +156,24 @@ export function useConversations() {
           });
         } catch (error) {
           console.error('Failed to add message to Convex:', error);
+        }
+      }
+    },
+
+    editMessage: async (conversationId: string, messageId: string, newContent: string) => {
+      // First update local state
+      actions.editMessage(conversationId, messageId, newContent);
+      
+      // Then update in Convex if available
+      if (isConvexAvailable && updateMessage) {
+        try {
+          await updateMessage({
+            conversationId: conversationId as Id<'conversations'>,
+            messageId,
+            content: newContent,
+          });
+        } catch (error) {
+          console.error('Failed to update message in Convex:', error);
         }
       }
     },

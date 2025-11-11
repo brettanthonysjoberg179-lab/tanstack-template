@@ -5,7 +5,7 @@ import {
   ChatMessage, 
   LoadingIndicator, 
   ChatInput, 
-  WelcomeScreen 
+  WelcomeScreen
 } from '../components'
 import { useConversations, useAppState, store, actions } from '../store'
 import { genAIResponse, type Message } from '../utils'
@@ -287,12 +287,25 @@ function Home() {
         {/* Header */}
         <header className="flex items-center justify-between p-4 border-b border-gray-700">
           <h1 className="text-xl font-semibold text-white">TanStack Chat</h1>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                // Trigger the global keyboard shortcut using custom event
+                const event = new CustomEvent('openQuickActionPanel')
+                window.dispatchEvent(event)
+              }}
+              className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1.5"
+              title="Quick Action Panel (Ctrl+K or Cmd+K)"
+            >
+              <span>Ctrl+K</span>
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 text-gray-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 rounded-lg"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </header>
 
         {/* Messages */}

@@ -237,6 +237,47 @@ You can generate and manage your Anthropic API keys through the [Anthropic Conso
 VITE_ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
+### MCP Server Configuration (Optional)
+
+The Model Context Protocol (MCP) server provides a standardized interface for AI model interactions with API token authentication. This is useful for integrating with external tools or providing programmatic access to the chat functionality.
+
+To enable the MCP server:
+
+1. Set the MCP server enabled flag in your `.env` file:
+   ```
+   # .env file
+   VITE_MCP_SERVER_ENABLED=true
+   ```
+
+2. Generate and set a secure API token for MCP authentication:
+   ```
+   # .env file
+   VITE_MCP_API_TOKEN=your_secure_mcp_api_token
+   ```
+
+3. The MCP server will be available at `/api/mcp` and accepts both GET and POST requests with Bearer token authentication.
+
+**Using the MCP API:**
+
+GET Request example:
+```bash
+curl -X GET "http://localhost:3000/api/mcp?messages=%5B%7B%22role%22%3A%22user%22%2C%22content%22%3A%22Hello%22%7D%5D" \
+  -H "Authorization: Bearer your_secure_mcp_api_token"
+```
+
+POST Request example:
+```bash
+curl -X POST "http://localhost:3000/api/mcp" \
+  -H "Authorization: Bearer your_secure_mcp_api_token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Hello"}
+    ],
+    "systemPrompt": "You are a helpful assistant."
+  }'
+```
+
 ### Convex Configuration (Optional)
 
 For persistent storage of conversations:
